@@ -33,7 +33,7 @@ def save():
     logging.info('Saving state...')
     with open('./viewed.json', 'w') as fp:
         json.dump(package.downloaded_links, fp)
-    with open('./adresses.json', 'w') as fp:
+    with open('./addresses.json', 'w') as fp:
         json.dump(package.data, fp)
 
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
         with open('./viewed.json') as fp:
             package.downloaded_links = json.load(fp)  # save() will dump old data as well
             package.queued_links = set(package.downloaded_links)  # do not queue what is already downloaded
-        with open('./adresses.json') as fp:
+        with open('./addresses.json') as fp:
             package.data = json.load(fp)
     except (ValueError, OSError):  # malformed or non-existing = no save data
         pass
