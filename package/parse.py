@@ -32,13 +32,13 @@ def sigusr_handler(sig, trace):
 def save():
     logging.info('Saving state...')
     with open('./viewed.json', 'w') as fp:
-        json.dump(package.downloaded_links, fp, indent=True)
+        json.dump(package.downloaded_links, fp)
     with open('./adresses.json', 'w') as fp:
-        json.dump(package.data, fp, indent=True)
+        json.dump(package.data, fp)
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     logging.getLogger('tornado.access').setLevel('DEBUG')
     logging.getLogger('tornado.general').setLevel('DEBUG')
 
