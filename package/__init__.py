@@ -7,14 +7,15 @@ from tornado.httpclient import AsyncHTTPClient, HTTPError
 from tornado.ioloop import IOLoop
 import tornado.locks
 
+from package.model import VisitedLink
+from .model import session
+
 c = AsyncHTTPClient()
 base_url = 'http://turkeytr.net'
 sem = tornado.locks.Semaphore(3)
 
 queued_links = set()
 timed_out_links = set()
-downloaded_links = []
-data = {}
 
 
 @coroutine
@@ -58,6 +59,6 @@ def get_async(url, _callback, *args, **kwargs):
         raise
     else:
         logging.debug('Done %s' % url)
-        downloaded_links.append(url)
+        session.add(VisitedLink(link=url))
         timed_out_links.discard(url)
         return result

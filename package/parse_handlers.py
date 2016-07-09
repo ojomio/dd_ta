@@ -4,8 +4,8 @@ import re
 from pyquery import PyQuery
 from tornado.gen import coroutine
 
-import package
 from package import get_async
+from package.model import session, Address
 
 
 @coroutine
@@ -100,7 +100,11 @@ def parse_subcategory(resp, main_cat_title):
 def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
     pq = PyQuery(resp.body)
     for node in pq('ul.firms > li'):
-        package.data.setdefault(main_cat_title, {}).setdefault(sub_cat_title, []).append({
-            'name': node.xpath('./div[@class="title"]/a')[0].text,
-            'address': node.xpath('./div[@class="address"]')[0].text,
-        })
+        session.add(
+            Address(
+                category=main_cat_title,
+                subcategory=sub_cat_title,
+                name=node.xpath('./div[@class="title"]/a')[0].text,
+                address=node.xpath('./div[@class="address"]')[0].text,
+            )
+        )
