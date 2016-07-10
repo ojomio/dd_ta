@@ -104,7 +104,7 @@ def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
             Address(
                 category=main_cat_title,
                 subcategory=sub_cat_title,
-                name=node.xpath('./div[@class="title"]/a')[0].text.encode('iso-8859-1').decode('utf8'),
-                address=node.xpath('./div[@class="address"]')[0].text.encode('iso-8859-1').decode('utf8'),
+                name=(node.xpath('./div[@class="title"]/a')[0].text or '').encode('iso-8859-1').decode('utf8'),
+                address=(node.xpath('./div[@class="address"]')[0].text or '').encode('iso-8859-1').decode('utf8'),
             )
         )
