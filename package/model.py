@@ -14,7 +14,7 @@ class Address(Base):
     category = Column(VARCHAR(500))
     subcategory = Column(VARCHAR(500))
     name = Column(VARCHAR(1000))
-    address = Column(VARCHAR(1500))
+    address = Column(VARCHAR(1500), index=True)
 
     coordinates = Column(VARCHAR(1500))
     locality = Column(VARCHAR(500), index=True)
