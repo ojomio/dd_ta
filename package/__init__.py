@@ -1,6 +1,5 @@
 import logging
-from urllib.parse import urljoin
-
+from urllib.parse import urljoin, urlparse
 from tornado.concurrent import Future
 from tornado.gen import coroutine
 from tornado.httpclient import AsyncHTTPClient, HTTPError
@@ -12,7 +11,8 @@ from .model import session
 
 c = AsyncHTTPClient()
 base_url = 'http://turkeytr.net'
-sem = tornado.locks.Semaphore(3)
+semaphors = {'turkeytr.net': tornado.locks.Semaphore(4),
+             'maps.googleapis.com': tornado.locks.Semaphore(2)}
 
 queued_links = set()
 timed_out_links = set()
@@ -30,6 +30,9 @@ def get_async(url, _callback, attempts=5, *args, **kwargs):
     """
 
     url = urljoin(base_url, url)
+    domain = urlparse(url)[1]
+    sem = semaphors[domain]
+
     if url in queued_links:
         logging.warning('%s has already been queued for download' % url)
         return
