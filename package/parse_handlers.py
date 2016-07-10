@@ -1,10 +1,12 @@
 import logging
 import re
+import urllib.parse
 
 from pyquery import PyQuery
 from tornado.gen import coroutine
 
 from package import get_async
+from package.geocode import geocode_handler, google_geocode_url
 from package.model import session, Address, Firm
 
 
@@ -105,7 +107,12 @@ def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
             address = (node.xpath('./div[@class="address"]')[0].text or '').encode('iso-8859-1').decode('utf8')
             firm = session.query(Firm).filter_by(name=name).first()
             if not firm:
-                firm = Firm(name=name, address=address)
+                firm = Firm(name=name, address=address)  # Create firm if it wasn't mentioned before
+                yield get_async(  # Resolve coordinates and city for its address
+                    (google_geocode_url % urllib.parse.quote(firm.address)),
+                    geocode_handler,
+                    firm=firm,
+                )
             session.add(
                 Address(
                     category=main_cat_title,
