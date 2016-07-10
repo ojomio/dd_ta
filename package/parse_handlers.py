@@ -6,7 +6,7 @@ from pyquery import PyQuery
 from tornado.gen import coroutine
 
 from package import get_async
-from package.geocode import geocode_handler, google_geocode_url
+from package.geocode import geocode_handler, google_geocode_url, partition
 from package.model import session, Address, Firm
 
 
@@ -45,13 +45,14 @@ def parse_category(resp, ):
         for page_idx in range(2, max_page + 1):  # +1 to include max_page
             cat_page_url = re.sub(r'/([^/]*)\.htm$', r'/\1/\1_pg-%d.html' % page_idx, url)
             cat_pages.append(cat_page_url)
-        yield [
-            get_async(cat_pager_page_url,
-                      parse_cat_pager_page,
-                      main_cat_title=title
-                      )
-            for cat_pager_page_url in cat_pages
-        ]
+        for portion in partition(cat_pages, chunk=5):  # Process 5 pages before queueing next 5
+            yield [
+                get_async(cat_pager_page_url,
+                          parse_cat_pager_page,
+                          main_cat_title=title
+                          )
+                for cat_pager_page_url in portion
+            ]
     logging.info('Category %s done' % (title))
 
 
@@ -87,14 +88,16 @@ def parse_subcategory(resp, main_cat_title):
         for page_idx in range(2, max_page + 1):  # +1 to include max_page
             sub_cat_page_url = re.sub(r'\.html$', (r'_page-%d.html' % page_idx), url)
             sub_cat_pages.append(sub_cat_page_url)
-        yield [
-            get_async(sub_cat_pager_page_url,
-                      parse_sub_cat_pager_page,
-                      main_cat_title=main_cat_title,
-                      sub_cat_title=title,
-                      )
-            for sub_cat_pager_page_url in sub_cat_pages
-        ]
+
+        for portion in partition(sub_cat_pages, chunk=5):  # Process 5 pages before queueing next 5
+            yield [
+                get_async(sub_cat_pager_page_url,
+                          parse_sub_cat_pager_page,
+                          main_cat_title=main_cat_title,
+                          sub_cat_title=title,
+                          )
+                for sub_cat_pager_page_url in portion
+            ]
     logging.info('Subcategory %s>%s done' % (main_cat_title, title))
 
 
