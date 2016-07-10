@@ -44,7 +44,7 @@ def get_async(url, _callback, attempts=5, *args, **kwargs):
             logging.debug('Acquired for %s (%d left)' % (url, sem._value))
 
             try:
-                resp = yield c.fetch(url)
+                resp = yield c.fetch(url, request_timeout=600)
                 break
             except HTTPError as e:  # propagate any other error
                 logging.exception('Exception was caught. Response processing cancelled')
