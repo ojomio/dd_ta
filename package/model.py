@@ -3,7 +3,8 @@ import json
 from sqlalchemy import Column, VARCHAR, Index, create_engine
 from sqlalchemy import Integer
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
+from sqlalchemy.sql.schema import ForeignKey
 
 Base = declarative_base()
 
@@ -13,14 +14,20 @@ class Address(Base):
     id = Column(Integer, primary_key=True)
     category = Column(VARCHAR(500))
     subcategory = Column(VARCHAR(500))
-    name = Column(VARCHAR(1000))
+    firm_id = Column(Integer, ForeignKey('firm.id'))
+    firm = relationship('Firm')
+
+
+Index('cat_index', Address.category, Address.subcategory)
+
+class Firm(Base):
+    __tablename__ = 'firm'
+    id = Column(Integer, primary_key=True)
+    name = Column(VARCHAR(1000), index=True)
     address = Column(VARCHAR(1500), index=True)
 
     coordinates = Column(VARCHAR(1500))
     locality = Column(VARCHAR(500), index=True)
-
-Index('cat_index', Address.category, Address.subcategory)
-
 
 class VisitedLink(Base):
     __tablename__ = 'visited_links'

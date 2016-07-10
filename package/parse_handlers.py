@@ -5,7 +5,7 @@ from pyquery import PyQuery
 from tornado.gen import coroutine
 
 from package import get_async
-from package.model import session, Address
+from package.model import session, Address, Firm
 
 
 @coroutine
@@ -100,11 +100,18 @@ def parse_subcategory(resp, main_cat_title):
 def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
     pq = PyQuery(resp.body)
     for node in pq('ul.firms > li'):
-        session.add(
-            Address(
-                category=main_cat_title,
-                subcategory=sub_cat_title,
-                name=(node.xpath('./div[@class="title"]/a')[0].text or '').encode('iso-8859-1').decode('utf8'),
-                address=(node.xpath('./div[@class="address"]')[0].text or '').encode('iso-8859-1').decode('utf8'),
+        try:
+            name = (node.xpath('./div[@class="title"]/a')[0].text or '').encode('iso-8859-1').decode('utf8')
+            address = (node.xpath('./div[@class="address"]')[0].text or '').encode('iso-8859-1').decode('utf8')
+            firm = session.query(Firm).filter_by(name=name).first()
+            if not firm:
+                firm = Firm(name=name, address=address)
+            session.add(
+                Address(
+                    category=main_cat_title,
+                    subcategory=sub_cat_title,
+                    firm=firm,
+                )
             )
-        )
+        except UnicodeEncodeError as e:
+            logging.exception('String decoding problem ("%s")' % node.get_content())
