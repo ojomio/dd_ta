@@ -1,20 +1,18 @@
 import json
 import logging
 import urllib.parse
-from itertools import takewhile
-from signal import SIGINT, alarm, SIGALRM, SIGUSR1
+from signal import SIGINT, alarm, SIGALRM
 from signal import signal
-from sqlalchemy import create_engine, distinct
-from sqlalchemy.orm import sessionmaker
+
 from tornado.gen import coroutine
 from tornado.ioloop import IOLoop
-from package.model import Base, VisitedLink, session, Address
-from package.parse_handlers import parse_site
-from package import get_async
+
 import package
+from package import get_async
+from package.model import session, Firm, Address, Locality
 
 google_geocode_url = 'https://maps.googleapis.com/maps/api/geocode/json?key=AIzaSyBWBckrECvIQkd3cpwxJ6Qe7EDOF96U91A' \
-                     '&address=%s&language=ru'
+                     '&address=%s&language=en'
 
 
 def sigint_handler(sig, trace):
@@ -48,45 +46,69 @@ def partition(iterable, chunk):
     while not closed:
         yield internal()
 
+
 @coroutine
 def geocode(ioloop):
     for portion in partition(
             iterable=session.query(
-                distinct(Address.address)
+                Firm
             ).filter(
-                        Address.address != None
+                Firm.address != None
+            ).filter(
+                Firm.locality == None
             ),
             chunk=100
     ):
 
         yield [
             get_async(
-                (google_geocode_url % urllib.parse.quote(addr_string[0])),
+                (google_geocode_url % urllib.parse.quote(firm.address)),
                 geocode_handler,
-                addr_string=addr_string[0]
+                firm=firm,
             )
-            for addr_string in portion
+            for firm in portion
         ]
     ioloop.stop()
 
 
-def geocode_handler(resp, addr_string):
-    resp = json.loads(resp.body)
+@coroutine
+def geocode_handler(resp, firm):
+    resp = json.loads(resp.body.decode())
     if resp['status'] != "OK":
-        logging.info('Error. Ignoring request')
+        logging.info('Error in geocoding firm address %s. Ignoring request' % firm.address)
         logging.error(str(resp))
+        return
 
+    coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])  # precise coordinates of the firm
     toponym = ', '.join([
         addr_component['long_name']
         for addr_component in resp['results'][0]['address_components']
-        if set(addr_component['types']) & {'administrative_area_level_1', 'administrative_area_level_2', 'locality'}
+        if set(addr_component['types']) & {'country', 'administrative_area_level_1', 'administrative_area_level_2', 'locality'}
     ])
-    coordinates = '{lat} {lng}'.format(resp['results'][0]['geometry']['location'])
-    session.query(Address).filter_by(address=addr_string).update(
-        locality=toponym,
-        coordinates=coordinates,
-    )
 
+    locality = session.query(Locality).filter_by(locality=toponym).first()
+    if not locality:  # Сheck if we have coordinates for the city of firm in interest
+        yield get_async(  # if not, get them and store in db
+            (google_geocode_url % urllib.parse.quote(toponym)),
+            record_new_toponym,
+            toponym_name=toponym,
+        )
+
+    firm.locality = toponym
+    firm.coordinates = coordinates
+
+
+def record_new_toponym(resp, toponym_name):
+    resp = json.loads(resp.body.decode())
+
+    if resp['status'] != "OK":
+        logging.info('Error in geocoding toponym address %s. Ignoring request')
+        logging.error(str(resp))
+        return
+
+    coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])
+    session.add(Locality(name=toponym_name,
+                         coordinates=coordinates))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)

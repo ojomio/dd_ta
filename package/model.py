@@ -29,6 +29,13 @@ class Firm(Base):
     coordinates = Column(VARCHAR(1500))
     locality = Column(VARCHAR(500), index=True)
 
+
+class Locality(Base):
+    __tablename__ = 'locality'
+    locality = Column(VARCHAR(500), primary_key=True)
+    locality_coordinates = Column(VARCHAR(100))
+
+
 class VisitedLink(Base):
     __tablename__ = 'visited_links'
     id = Column(Integer, primary_key=True)
