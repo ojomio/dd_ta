@@ -19,7 +19,7 @@ timed_out_links = set()
 
 
 @coroutine
-def get_async(url, _callback, *args, **kwargs):
+def get_async(url, _callback, attempts=5, *args, **kwargs):
     """
     Downloads resource and invokes processing callback with it
     :param url: url of the resource
@@ -35,19 +35,25 @@ def get_async(url, _callback, *args, **kwargs):
         return
     queued_links.add(url)
     logging.debug('Queueing %s' % url)
-    with (yield sem.acquire()):  # Restrict simultaneous requests to avoid server DOS or ban
-        logging.debug('Downloading %s' % url)
-        logging.debug('Acquired for %s (%d left)' % (url, sem._value))
-        try:
-            resp = yield c.fetch(url)
-        except HTTPError as e:
-            logging.exception('Exception was caught. Response processing cancelled')
-            if e.code == 599:  # Timeout
-                logging.warning('Timed out. Requeueing %s' % url)
-                queued_links.discard(url)
-                timed_out_links.add(url)
-                IOLoop.current().add_callback(get_async, url, _callback, *args, **kwargs)
-            return
+    for attempt in range(attempts):
+        with (yield sem.acquire()):  # Restrict simultaneous requests to avoid server DOS or ban
+            logging.debug('Downloading %s' % url)
+            logging.debug('Acquired for %s (%d left)' % (url, sem._value))
+
+            try:
+                resp = yield c.fetch(url)
+                break
+            except HTTPError as e:  # propagate any other error
+                logging.exception('Exception was caught. Response processing cancelled')
+                if e.code == 599:  # Timeout
+                    logging.warning('Timed out. Requeueing %s' % url)
+                    timed_out_links.add(url)
+                    if attempt == attempts-1:  # last attempt and still timeout
+                        # In case someone wants to request this URL from another place, we don't mind repeating
+                        queued_links.discard(url)
+                        return  # Just give up trying and skip this URL
+                else:
+                    raise  # propagate any other HTTP error
 
     callback_res = _callback(resp, *args, **kwargs)  # pass additional arguments besides response
     try:
