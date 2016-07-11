@@ -45,14 +45,26 @@ def parse_category(resp, ):
         for page_idx in range(2, max_page + 1):  # +1 to include max_page
             cat_page_url = re.sub(r'/([^/]*)\.htm$', r'/\1/\1_pg-%d.html' % page_idx, url)
             cat_pages.append(cat_page_url)
-        for portion in partition(cat_pages, chunk=2):  # Process 5 pages before queueing next 5
-            yield [
-                get_async(cat_pager_page_url,
-                          parse_cat_pager_page,
-                          main_cat_title=title
-                          )
-                for cat_pager_page_url in portion
-            ]
+
+        deferred_exception = None
+        for portion in partition(cat_pages, chunk=2):  # Process 2 pages before queueing next 2
+            try:
+                yield [
+                    get_async(cat_pager_page_url,
+                              parse_cat_pager_page,
+                              main_cat_title=title
+                              )
+                    for cat_pager_page_url in portion
+                    ]
+            except Exception as e:  # catch exception so that the other portions are executed as well
+                logging.exception('Exception occurred during %s, skipping to process the next address batch' % url)
+                # but raise in the end to indicate overall failure and prevent url from being marked as downloaded
+                deferred_exception = e
+
+        if deferred_exception:
+            raise Exception('%s is incomplete due to exception in one of its pages.'
+                            ' Details follow' % url) from deferred_exception
+
     logging.info('Category %s done' % (title))
 
 

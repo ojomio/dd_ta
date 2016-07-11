@@ -50,26 +50,31 @@ def partition(iterable, chunk):
 
 @coroutine
 def geocode(ioloop):
-    for portion in partition(
-            iterable=session.query(
-                Firm
-            ).filter(
-                Firm.address != None
-            ).filter(
-                Firm.locality == None
-            ),
-            chunk=100
-    ):
+    try:
+        for portion in partition(
+                iterable=session.query(
+                    Firm
+                ).filter(
+                    Firm.address != None
+                ).filter(
+                    Firm.locality == None
+                ),
+                chunk=100
+        ):
+            try:
+                yield [
+                    get_async(
+                        (google_geocode_url % urllib.parse.quote(firm.address)),
+                        geocode_handler,
+                        firm=firm,
+                    )
+                    for firm in portion
+                ]
 
-        yield [
-            get_async(
-                (google_geocode_url % urllib.parse.quote(firm.address)),
-                geocode_handler,
-                firm=firm,
-            )
-            for firm in portion
-        ]
-    ioloop.stop()
+            except Exception as e:
+                logging.exception('Exception occurred, skipping to next address batch ')
+    finally:
+        ioloop.stop()
 
 
 @coroutine
