@@ -81,6 +81,16 @@ def geocode(ioloop):
 @package.rollback_on_exception
 def geocode_handler(resp, firm):
     resp = json.loads(resp.body.decode())
+    # Handle Google API errors
+    if resp['status'] == "ZERO_RESULTS" and 'Turkey' not in firm.address:
+        # Try appending 'Turkey' if no results found for original address
+        yield get_async(
+            (google_geocode_url % urllib.parse.quote('%s , Turkey' % firm.address)),
+            geocode_handler,
+            firm=firm,
+        )
+        return
+
     if resp['status'] != "OK":
         logging.info('Error in geocoding firm address %s. Ignoring request' % firm.address)
         logging.error(str(resp))
