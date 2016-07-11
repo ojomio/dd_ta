@@ -134,19 +134,22 @@ def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
             name = (node.xpath('./div[@class="title"]/a')[0].text or '').encode('iso-8859-1').decode('utf8')
             address = (node.xpath('./div[@class="address"]')[0].text or '').encode('iso-8859-1').decode('utf8')
             firm = session.query(Firm).filter_by(name=name).first()
-            if not firm:
-                firm = Firm(name=name, address=address)  # Create firm if it wasn't mentioned before
+            addr_obj = Address(
+                category=main_cat_title,
+                subcategory=sub_cat_title,
+                firm=firm,
+            )
+            session.add(addr_obj)
+
+            if not firm:  # Create firm if it wasn't mentioned before
+                firm = Firm(name=name, address=address)
+                addr_obj.firm = firm
+
                 yield get_async(  # Resolve coordinates and city for its address
                     (google_geocode_url % urllib.parse.quote(firm.address)),
                     geocode_handler,
                     firm=firm,
                 )
-            session.add(
-                Address(
-                    category=main_cat_title,
-                    subcategory=sub_cat_title,
-                    firm=firm,
-                )
-            )
+
         except UnicodeEncodeError as e:
             logging.exception('String decoding problem ("%s")' % node.text_content())

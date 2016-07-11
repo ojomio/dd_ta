@@ -103,6 +103,9 @@ def geocode_handler(resp, firm):
         if set(addr_component['types']) & {'country', 'administrative_area_level_1', 'administrative_area_level_2', 'locality'}
     ])
 
+    firm.locality = toponym
+    firm.coordinates = coordinates
+
     locality = session.query(Locality).filter_by(locality=toponym).first()
     if not locality:  # Сheck if we have coordinates for the city of firm in interest
         yield get_async(  # if not, get them and store in db
@@ -110,9 +113,6 @@ def geocode_handler(resp, firm):
             record_new_toponym,
             toponym_name=toponym,
         )
-
-    firm.locality = toponym
-    firm.coordinates = coordinates
 
 
 @package.rollback_on_exception
@@ -125,8 +125,8 @@ def record_new_toponym(resp, toponym_name):
         return
 
     coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])
-    session.add(Locality(name=toponym_name,
-                         coordinates=coordinates))
+    session.add(Locality(locality=toponym_name,
+                         locality_coordinates=coordinates))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
