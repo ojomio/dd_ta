@@ -8,8 +8,8 @@ from tornado.gen import coroutine
 from tornado.ioloop import IOLoop
 
 import package
-from package import get_async
-from package.model import session, Firm, Address, Locality
+from package import get_async, rollback_on_exception
+from package.model import session, Firm, Locality
 
 google_geocode_url = 'https://maps.googleapis.com/maps/api/geocode/json?key=AIzaSyBWBckrECvIQkd3cpwxJ6Qe7EDOF96U91A' \
                      '&address=%s&language=en'
@@ -25,6 +25,7 @@ def sigalarm_handler(sig, trace):
     alarm(30)  # schedule next alarm in 10 secs
 
 
+@rollback_on_exception
 def save():
     logging.info('Saving state...')
     session.commit()
@@ -72,6 +73,7 @@ def geocode(ioloop):
 
 
 @coroutine
+@package.rollback_on_exception
 def geocode_handler(resp, firm):
     resp = json.loads(resp.body.decode())
     if resp['status'] != "OK":
@@ -98,6 +100,7 @@ def geocode_handler(resp, firm):
     firm.coordinates = coordinates
 
 
+@package.rollback_on_exception
 def record_new_toponym(resp, toponym_name):
     resp = json.loads(resp.body.decode())
 

@@ -5,7 +5,7 @@ import urllib.parse
 from pyquery import PyQuery
 from tornado.gen import coroutine
 
-from package import get_async
+from package import get_async, rollback_on_exception
 from package.geocode import geocode_handler, google_geocode_url, partition
 from package.model import session, Address, Firm
 
@@ -89,19 +89,32 @@ def parse_subcategory(resp, main_cat_title):
             sub_cat_page_url = re.sub(r'\.html$', (r'_page-%d.html' % page_idx), url)
             sub_cat_pages.append(sub_cat_page_url)
 
-        for portion in partition(sub_cat_pages, chunk=2):  # Process 5 pages before queueing next 5
-            yield [
-                get_async(sub_cat_pager_page_url,
-                          parse_sub_cat_pager_page,
-                          main_cat_title=main_cat_title,
-                          sub_cat_title=title,
-                          )
-                for sub_cat_pager_page_url in portion
-            ]
+        deferred_exception = None
+        # Process 2 pages before queueing next 2(saves memory on futures)
+        for portion in partition(sub_cat_pages, chunk=2):
+            try:
+                yield [
+                    get_async(sub_cat_pager_page_url,
+                              parse_sub_cat_pager_page,
+                              main_cat_title=main_cat_title,
+                              sub_cat_title=title,
+                              )
+                    for sub_cat_pager_page_url in portion
+                ]
+            except Exception as e:  # catch exception so that the other portions are executed as well
+                logging.exception('Exception occurred during %s, skipping to process the next address batch' % url)
+                # but raise in the end to indicate overall failure and prevent url from being marked as downloaded
+                deferred_exception = e
+
+        if deferred_exception:
+            raise Exception('%s is incomplete due to exception in one of its pages.'
+                            ' Details follow' % url) from deferred_exception
+
     logging.info('Subcategory %s>%s done' % (main_cat_title, title))
 
 
 @coroutine
+@rollback_on_exception
 def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
     pq = PyQuery(resp.body)
     for node in pq('ul.firms > li'):

@@ -1,10 +1,13 @@
+import functools
 import logging
+from types import GeneratorType
 from urllib.parse import urljoin, urlparse
+
+import tornado.locks
+from sqlalchemy.exc import SQLAlchemyError
 from tornado.concurrent import Future
 from tornado.gen import coroutine
 from tornado.httpclient import AsyncHTTPClient, HTTPError
-from tornado.ioloop import IOLoop
-import tornado.locks
 
 from package.model import VisitedLink
 from .model import session
@@ -16,6 +19,28 @@ semaphors = {'turkeytr.net': tornado.locks.Semaphore(4),
 
 queued_links = set()
 timed_out_links = set()
+
+
+def rollback_on_exception(fn):  # roll tx back if we cannot continue
+    def wrapper_gen(underlying_gen):
+        try:
+            yield from underlying_gen
+        except SQLAlchemyError:
+            logging.exception('SQL exception @%r' % fn)
+            session.rollback()
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            res = fn(*args, **kwargs)
+            if isinstance(res, GeneratorType):
+                return wrapper_gen(res)
+            else:
+                return res
+        except SQLAlchemyError:
+            logging.exception('SQL exception @%r' % fn)
+            session.rollback()
+    return wrapper
 
 
 @coroutine
