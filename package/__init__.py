@@ -12,10 +12,10 @@ from tornado.httpclient import AsyncHTTPClient, HTTPError
 from package.model import VisitedLink
 from .model import session
 
-c = AsyncHTTPClient()
+c = AsyncHTTPClient(max_clients=100)
 base_url = 'http://turkeytr.net'
-semaphors = {'turkeytr.net': tornado.locks.Semaphore(4),
-             'maps.googleapis.com': tornado.locks.Semaphore(2)}
+semaphors = {'turkeytr.net': tornado.locks.Semaphore(8),
+             'maps.googleapis.com': tornado.locks.Semaphore(20)}
 
 queued_links = set()
 timed_out_links = set()
