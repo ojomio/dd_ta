@@ -98,26 +98,34 @@ def geocode_handler(resp, firm):
         return
 
     coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])  # precise coordinates of the firm
-    toponym = ', '.join([
+    firm.coordinates = coordinates
+
+    toponym_preliminary = ', '.join([
         addr_component['long_name']
         for addr_component in resp['results'][0]['address_components']
         if set(addr_component['types']) & {'country', 'administrative_area_level_1', 'administrative_area_level_2', 'locality'}
     ])
 
-    firm.locality = toponym
-    firm.coordinates = coordinates
-
-    locality = session.query(Locality).filter_by(locality=toponym).first()
-    if not locality:  # Сheck if we have coordinates for the city of firm in interest
-        yield get_async(  # if not, get them and store in db
-            (google_geocode_url % urllib.parse.quote(toponym)),
-            record_new_toponym,
-            toponym_name=toponym,
-        )
+    yield get_async(  # Normalize the toponym (create if new)
+        (google_geocode_url % urllib.parse.quote(toponym_preliminary)),
+        record_new_toponym,
+        firm=firm,
+        toponym_preliminary=toponym_preliminary,
+    )
 
 
-@package.rollback_on_exception
-def record_new_toponym(resp, toponym_name):
+
+
+@package.rollback_on_exception()
+def record_new_toponym(resp, firm, toponym_preliminary):
+    '''
+    Normalize toponym name so that eg Üsküdar, Üsküdar, İstanbul, Turkey =  Üsküdar, İstanbul, Turkey
+    Save if new
+    :param resp:
+    :param firm:
+    :param toponym_preliminary: toponym extracted from initial address
+    :return:
+    '''
     resp = json.loads(resp.body.decode())
 
     if resp['status'] != "OK":
@@ -125,9 +133,20 @@ def record_new_toponym(resp, toponym_name):
         logging.error(str(resp))
         return
 
-    coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])
-    session.add(Locality(locality=toponym_name,
-                         locality_coordinates=coordinates))
+    toponym_normalized = ', '.join([
+        addr_component['long_name']
+        # store in reverse order for easier search in db
+        for addr_component in reversed(resp['results'][0]['address_components'])
+        if set(addr_component['types']) & {'country', 'administrative_area_level_1', 'administrative_area_level_2', 'locality'}
+    ])
+    firm.locality = toponym_normalized
+
+    locality = session.query(Locality).filter_by(locality=toponym_normalized).first()
+    if not locality:  # Сheck if we have record for that toponym already
+        # coordinates of the toponym's centre
+        coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])
+        session.add(Locality(locality=toponym_normalized,
+                             locality_coordinates=coordinates))
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
