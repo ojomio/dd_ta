@@ -21,26 +21,37 @@ queued_links = set()
 timed_out_links = set()
 
 
-def rollback_on_exception(fn):  # roll tx back if we cannot continue
-    def wrapper_gen(underlying_gen):
-        try:
-            yield from underlying_gen
-        except SQLAlchemyError:
-            logging.exception('SQL exception @%r' % fn)
-            session.rollback()
+def rollback_on_exception(suppress_exception=False):
+    '''
+    Roll tx back if we cannot continue
+    :param suppress_exception:
+    :return:
+    '''
+    def deco (fn):
+        def wrapper_gen(underlying_gen):
+            try:
+                yield from underlying_gen
+            except SQLAlchemyError:
+                logging.exception('SQL exception @%r' % fn)
+                session.rollback()
+                if not suppress_exception:
+                    raise
 
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        try:
-            res = fn(*args, **kwargs)
-            if isinstance(res, GeneratorType):
-                return wrapper_gen(res)
-            else:
-                return res
-        except SQLAlchemyError:
-            logging.exception('SQL exception @%r' % fn)
-            session.rollback()
-    return wrapper
+        @functools.wraps(fn)
+        def wrapper(*args, **kwargs):
+            try:
+                res = fn(*args, **kwargs)
+                if isinstance(res, GeneratorType):
+                    return wrapper_gen(res)
+                else:
+                    return res
+            except SQLAlchemyError:
+                logging.exception('SQL exception @%r' % fn)
+                session.rollback()
+                if not suppress_exception:
+                    raise
+        return wrapper
+    return deco
 
 
 @coroutine

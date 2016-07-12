@@ -126,7 +126,7 @@ def parse_subcategory(resp, main_cat_title):
 
 
 @coroutine
-@rollback_on_exception
+@rollback_on_exception()
 def parse_sub_cat_pager_page(resp, main_cat_title, sub_cat_title):
     pq = PyQuery(resp.body)
     for node in pq('ul.firms > li'):

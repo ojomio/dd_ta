@@ -1,16 +1,13 @@
-import json
 import logging
 from signal import SIGINT, alarm, SIGALRM, SIGUSR1
 from signal import signal
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 from tornado.ioloop import IOLoop
 
-from package.model import Base, VisitedLink, session
-from package.parse_handlers import parse_site
-from package import get_async
 import package
+from package import get_async
+from package.model import VisitedLink, session
+from package.parse_handlers import parse_site
 
 
 def sigint_handler(sig, trace):
@@ -30,6 +27,8 @@ def sigusr_handler(sig, trace):
     logging.info(package.queued_links)
 
 
+# If there is an error during save, we don't want it to stop the parsing process
+@package.rollback_on_exception(suppress_exception=True)
 def save():
     logging.info('Saving state...')
     session.commit()

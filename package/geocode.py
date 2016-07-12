@@ -25,7 +25,8 @@ def sigalarm_handler(sig, trace):
     alarm(30)  # schedule next alarm in 10 secs
 
 
-@rollback_on_exception
+# If there is an error during save, we don't want it to stop the parsing process
+@rollback_on_exception(suppress_exception=True)
 def save():
     logging.info('Saving state...')
     session.commit()
@@ -78,7 +79,7 @@ def geocode(ioloop):
 
 
 @coroutine
-@package.rollback_on_exception
+@package.rollback_on_exception()
 def geocode_handler(resp, firm):
     resp = json.loads(resp.body.decode())
     # Handle Google API errors
