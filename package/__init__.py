@@ -55,7 +55,7 @@ def rollback_on_exception(suppress_exception=False):
 
 
 @coroutine
-def get_async(url, _callback, attempts=5, *args, **kwargs):
+def get_async(url, _callback, attempts=5, check_queued=True, *args, **kwargs):
     """
     Downloads resource and invokes processing callback with it
     :param url: url of the resource
@@ -69,7 +69,7 @@ def get_async(url, _callback, attempts=5, *args, **kwargs):
     domain = urlparse(url)[1]
     sem = semaphors[domain]
 
-    if url in queued_links:
+    if check_queued and url in queued_links:
         logging.warning('%s has already been queued for download' % url)
         return
     queued_links.add(url)

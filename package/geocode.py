@@ -70,6 +70,8 @@ def geocode(ioloop):
                     get_async(
                         (google_geocode_url % urllib.parse.quote(re.sub('[\r\n]', ' ', firm.address))),
                         geocode_handler,
+                        check_queued=False,
+
                         firm=firm,
                     )
                     for firm in portion
@@ -83,15 +85,20 @@ def geocode(ioloop):
 
 @coroutine
 @package.rollback_on_exception()
-def geocode_handler(resp, firm):
+def geocode_handler(resp, firm, try_fix_address=True):
     resp = json.loads(resp.body.decode())
     # Handle Google API errors
-    if resp['status'] == "ZERO_RESULTS" and 'Turkey' not in firm.address:
+    if resp['status'] == "ZERO_RESULTS" \
+            and try_fix_address and 'turkey' not in firm.address.lower():
+
         # Try appending 'Turkey' if no results found for original address
         yield get_async(
             (google_geocode_url % urllib.parse.quote('%s , Turkey' % firm.address)),
             geocode_handler,
+            check_queued=False,
+
             firm=firm,
+            try_fix_address=False  # Avoid recursion
         )
         return
 
@@ -113,6 +120,8 @@ def geocode_handler(resp, firm):
     yield get_async(  # Normalize the toponym (create if new)
         (google_geocode_url % urllib.parse.quote(toponym_preliminary)),
         record_new_toponym,
+        check_queued=False,
+
         firm=firm,
         toponym_preliminary=toponym_preliminary,
     )
