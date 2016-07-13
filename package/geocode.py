@@ -4,6 +4,7 @@ import urllib.parse
 from signal import SIGINT, alarm, SIGALRM
 from signal import signal
 
+import re
 from tornado.gen import coroutine
 from tornado.ioloop import IOLoop
 
@@ -56,6 +57,8 @@ def geocode(ioloop):
                 iterable=session.query(
                     Firm
                 ).filter(
+                    Firm.address != ''
+                ).filter(
                     Firm.address != None
                 ).filter(
                     Firm.locality == None
@@ -65,7 +68,7 @@ def geocode(ioloop):
             try:
                 yield [
                     get_async(
-                        (google_geocode_url % urllib.parse.quote(firm.address)),
+                        (google_geocode_url % urllib.parse.quote(re.sub('[\r\n]', ' ', firm.address))),
                         geocode_handler,
                         firm=firm,
                     )
@@ -95,6 +98,7 @@ def geocode_handler(resp, firm):
     if resp['status'] != "OK":
         logging.info('Error in geocoding firm address %s. Ignoring request' % firm.address)
         logging.error(str(resp))
+        firm.locality = '<UNKNOWN>'
         return
 
     coordinates = '{lat} {lng}'.format(**resp['results'][0]['geometry']['location'])  # precise coordinates of the firm
@@ -129,8 +133,9 @@ def record_new_toponym(resp, firm, toponym_preliminary):
     resp = json.loads(resp.body.decode())
 
     if resp['status'] != "OK":
-        logging.info('Error in geocoding toponym address %s. Ignoring request')
+        logging.info('Error in geocoding toponym address %s')
         logging.error(str(resp))
+        firm.locality = toponym_preliminary  # Store at least preliminary toponym (no coords available)
         return
 
     toponym_normalized = ', '.join([
