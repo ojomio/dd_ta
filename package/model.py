@@ -50,7 +50,7 @@ Base.metadata.create_all(engine, checkfirst=True)  # Create what not already the
 Session = sessionmaker(bind=engine)
 session = Session()
 
-if __name__ == '__main__':
+if __name__ == '__main__':                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          
     try:  # Try to pull data that was saved earlier(if any) to avoid extra work
         with open('./viewed.json') as fp:
             downloaded_links = json.load(fp)  # save() will dump old data as well

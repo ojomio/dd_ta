@@ -35,7 +35,7 @@ def save():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     logging.getLogger('tornado.access').setLevel('DEBUG')
     logging.getLogger('tornado.general').setLevel('DEBUG')
 
