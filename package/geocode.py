@@ -63,7 +63,7 @@ def geocode(ioloop):
                 ).filter(
                     Firm.locality == None
                 ),
-                chunk=100
+                chunk=500
         ):
             try:
                 yield [
