@@ -27,7 +27,9 @@ class Firm(Base):
     address = Column(VARCHAR(1500), index=True)
 
     coordinates = Column(VARCHAR(1500))
-    locality = Column(VARCHAR(500), index=True)
+    locality = Column(VARCHAR(500), ForeignKey('locality.locality'), index=True)
+    locality_rel = relationship('Locality')
+
 
 
 class Locality(Base):
