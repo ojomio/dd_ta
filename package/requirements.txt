@@ -1,7 +1,6 @@
 pyquery == 1.2.9
 SQLAlchemy == 1.0.9
 tornado == 4.0.2
-package == 0.1.1
 numpy
 scipy
 ipywidgets==5.1.5

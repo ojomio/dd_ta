@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import logging
 from signal import SIGINT, alarm, SIGALRM, SIGUSR1
 from signal import signal
